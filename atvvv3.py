@@ -6,7 +6,7 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 # Caminho do arquivo no Colab
 DATA_FILE = Path("./barrettII_eyes_clustering.xlsx")
-    
+
 FEATURES = ["AL", "ACD", "WTW", "K1", "K2"]
 
 # Agora o modelo final será ajustado com 5 grupos
@@ -15,12 +15,20 @@ FINAL_K = 5
 
 def load_data(path: Path) -> pd.DataFrame:
     df = pd.read_excel(path)
+
+    missing_cols = [col for col in FEATURES if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Arquivo de dados incompleto. Faltam colunas: {missing_cols}")
+
     return df
 
 
 def preprocess_features(df: pd.DataFrame):
     X = df[FEATURES].copy()
 
+    if X.isna().any().any():
+        print("Dados faltantes detectados nas variáveis de cluster. Aplicando preenchimento por mediana.")
+        X = X.fillna(X.median())
 
     scaler = RobustScaler()
     X_scaled = scaler.fit_transform(X)
@@ -68,7 +76,7 @@ def print_cluster_report(df: pd.DataFrame, labels, n_clusters: int):
     percentual = df["Grupo"].value_counts(normalize=True).sort_index() * 100
     cluster_summary = df.groupby("Grupo")[FEATURES].agg(["mean", "std", "count"])
 
-    print("\n===== Relatório de Clusters =====")
+    print("\n===== Relatório de Clusters ====")
     print(f"Número total de olhos: {len(df)}")
     print(f"Grupos usados para caracterização: {n_clusters}\n")
 
@@ -102,6 +110,16 @@ def main():
     print(f"Carregando dados de {DATA_FILE}")
 
     df = load_data(DATA_FILE)
+
+    print("\n===== Estatísticas Descritivas por Feature =====")
+    for feature in FEATURES:
+        min_val = df[feature].min()
+        max_val = df[feature].max()
+        median_val = df[feature].median()
+        mean_val = df[feature].mean()
+        print(f"{feature}: Min={min_val:.2f}, Max={max_val:.2f}, Median={median_val:.2f}, Mean={mean_val:.2f}")
+    print("=================================================\n")
+
     X_scaled, scaler = preprocess_features(df)
 
     scores = evaluate_k_values(X_scaled)
